@@ -1,5 +1,5 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { VERSION, NAME } from "./src/common/version.js";
+import { VERSION, NAME	} from "./src/common/version.js";
 
 const server = new Server(
   {

@@ -6,7 +6,7 @@
   "author": "Andrzej Świstowski",
   "type": "module",
   "bin": {
-    "mcp-city-sindbad": "dist/index.js"
+    "mcp-city-sindbad": "./dist/index.js"
   },
   "files": [
     "dist"
@@ -14,7 +14,8 @@
   "scripts": {
     "build": "tsc",
     "prepare": "npm run build",
-    "watch": "tsc --watch"
+    "watch": "tsc --watch",
+    "start": "node ./dist/index.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.0.1",
