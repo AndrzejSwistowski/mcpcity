@@ -6,6 +6,14 @@ import * as search from './src/operations/citySearchSchema.js';
 import { z } from "zod";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 
+// If fetch doesn't exist in global scope, add it
+if (!globalThis.fetch) {
+  globalThis.fetch = fetch as unknown as typeof global.fetch;
+}
+
+console.log("Starting server...");
+
+
 const server = new Server(
 	{
 		name: NAME,
@@ -38,9 +46,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 		switch (request.params.name) {
 			case "city_search": {
 				const args = search.citySearchSchema.parse(request.params.arguments);
-				const mockResult = args; 
+				const results = mockCitySearch(args.q, args.language || 'pl');
 				return {
-					content: [{ type: "text", text: JSON.stringify(mockResult) }],
+					content: [{ type: "text", text: JSON.stringify({ query: args.q, language: args.language, results }) }],
 				};
 			}
 		
@@ -55,23 +63,27 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }	
 });	
 
-// Hello World program in TypeScript
-
-function sayHello(name: string = "World"): string {
-    return `Hello, ${name}!`;
+// Mock function to simulate city search
+function mockCitySearch(query: string, language: string) {
+  // Simple mock data for demonstration
+  const mockCities = [
+    { name: 'Warsaw', country: 'Poland', population: 1793000 },
+    { name: 'Krakow', country: 'Poland', population: 780000 },
+    { name: 'Łódź', country: 'Poland', population: 672000 },
+    { name: 'Wrocław', country: 'Poland', population: 641000 },
+    { name: 'Poznań', country: 'Poland', population: 534000 }
+  ];
+  
+  // Filter cities based on the query (case-insensitive)
+  return mockCities.filter(city => 
+    city.name.toLowerCase().includes(query.toLowerCase())
+  );
 }
-
-// Print hello message to console
-console.log(sayHello());
-
-// Export the function for potential use in other modules
-export { sayHello };
-
 
 async function runServer() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error(VERSION + " running on stdio");
+  console.error(NAME + " running on stdio");
 }
 
 runServer().catch((error) => {
