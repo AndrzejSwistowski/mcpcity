@@ -1,69 +1,120 @@
 import { jest, describe, beforeEach, afterEach, test, expect } from '@jest/globals';
+import path from 'path';
 
 // Create a mock for the fs module
+const mockAppendFileSync = jest.fn();
 jest.mock('fs', () => ({
-  appendFileSync: jest.fn(),
-}), { virtual: true });
+  appendFileSync: mockAppendFileSync,
+  // Add any other fs methods that might be used
+  existsSync: jest.fn().mockReturnValue(true),
+  mkdirSync: jest.fn()
+}));
 
 // Import fs after the mock is set up
 import * as fs from 'fs';
 
-// Import the module to test
-import { debugLog, setupErrorHandlers } from '../src/utils/logging.js';
+// Import the module to test - this must come before the SpyLogger definition
+import { Logger, setupErrorHandlers } from '../src/utils/logging.js';
 
-describe('Logging Module', () => {
-  // Store original console.error
-  const originalConsoleError = console.error;
-  let consoleErrorMock = jest.fn();
+/**
+ * A spy version of Logger for testing that prevents actual console output
+ */
+class SpyLogger extends Logger {
+  private spyLogCalls: any[][] = [];
+  
+  constructor(enabled: boolean = false, logPath: string = 'test-log.txt') {
+    super(enabled, logPath); // Create with specific debug setting and log path
+  }
+  
+  /**
+   * Override the logError method to capture log calls instead of writing to console
+   */
+  protected override logError(message: any, ...params: any[]): void {
+    // Instead of calling console.error, store the log in our spy array
+    this.spyLogCalls.push([message, ...params]);
+  }
+  
+  /**
+   * Get all recorded log calls
+   */
+  public getLogCalls(): any[][] {
+    return this.spyLogCalls;
+  }
+  
+  /**
+   * Clear recorded log calls
+   */
+  public clearLogCalls(): void {
+    this.spyLogCalls = [];
+  }
+}
+
+/**
+ * A mock version of Logger used to verify console.error calls
+ */
+class MockLogger extends Logger {
+  private mockLogError: jest.Mock;
+  
+  constructor() {
+    super();
+    this.mockLogError = jest.fn();
+  }
+  
+  protected override logError(message: any, ...params: any[]): void {
+    this.mockLogError(message, ...params);
+  }
+  
+  public getMockLogError(): jest.Mock {
+    return this.mockLogError;
+  }
+}
+
+describe('Logger Class', () => {
+  let logger: MockLogger;
   
   beforeEach(() => {
-    // Mock console.error before each test
-    consoleErrorMock = jest.fn();
-    console.error = consoleErrorMock;
+    // Create a new logger instance for each test that uses a mock function
+    logger = new MockLogger();
+    
     // Clear mock call history
     jest.clearAllMocks();
   });
 
-  afterEach(() => {
-    // Restore console.error after each test
-    console.error = originalConsoleError;
-  });
-
-  test('debugLog should log messages to console', () => {
+  test('log method should log messages when debug is enabled', () => {
     // Act
-    debugLog('Test message');
+    logger.log('Test message');
     
-    // Assert - we should have at least one call to console.error
-    expect(consoleErrorMock).toHaveBeenCalled();
+    // Assert - we should have at least one call to our mocked function
+    expect(logger.getMockLogError()).toHaveBeenCalled();
+    expect(mockAppendFileSync).toHaveBeenCalled();
   });
   
-  test('debugLog should stringify objects in logs', () => {
+  test('log method should stringify objects in logs', () => {
     // Arrange
     const testObject = { key: 'value', nested: { test: true } };
     
     // Act
-    debugLog('Test with object:', testObject);
+    logger.log('Test with object:', testObject);
     
-    // Assert - we can't check the exact format due to timestamps, but we should have called the mock
-    expect(consoleErrorMock).toHaveBeenCalled();
+    // Assert
+    expect(logger.getMockLogError()).toHaveBeenCalled();
+    expect(mockAppendFileSync).toHaveBeenCalled();
     
-    // At least one call should include the stringified object
-    const allCalls = consoleErrorMock.mock.calls.flat();
-    const stringifiedObject = JSON.stringify(testObject, null, 2);
-    const hasStringifiedObject = allCalls.some(arg => 
-      typeof arg === 'string' && arg.includes('"key": "value"') && arg.includes('"nested"')
+    // Check that the JSON was stringified (search for the object's contents in the calls)
+    const allCalls = logger.getMockLogError().mock.calls.flat();
+    const containsObjectData = allCalls.some(arg => 
+      typeof arg === 'string' && 
+      arg.includes('"key": "value"')
     );
-    
-    // If we can't verify the exact format, at least check that fs.appendFileSync was called
-    expect(fs.appendFileSync).toHaveBeenCalled();
+    expect(containsObjectData).toBeTruthy();
   });
-
+  
   test('setupErrorHandlers should register handlers for uncaught exceptions', () => {
     // Arrange
     const processOnSpy = jest.spyOn(process, 'on');
     
-    // Act
-    setupErrorHandlers();
+    // Act - now passing the logger instance as required
+    setupErrorHandlers(logger);
     
     // Assert
     expect(processOnSpy).toHaveBeenCalledWith('uncaughtException', expect.any(Function));
@@ -71,5 +122,38 @@ describe('Logging Module', () => {
     
     // Clean up
     processOnSpy.mockRestore();
+  });
+});
+
+describe('SpyLogger', () => {
+  let spyLogger: SpyLogger;
+  
+  beforeEach(() => {
+    spyLogger = new SpyLogger(true); // Enable logging for testing
+    jest.clearAllMocks();
+  });
+  
+  test('SpyLogger should capture log calls without writing to console', () => {
+    // Act
+    spyLogger.log('Test message');
+    
+    // Assert - we should have recorded the log call
+    expect(spyLogger.getLogCalls().length).toBe(1);
+    expect(spyLogger.getLogCalls()[0][0]).toContain('Test message');
+    
+    // File should still be written to
+    expect(mockAppendFileSync).toHaveBeenCalled();
+  });
+  
+  test('SpyLogger should handle object logging', () => {
+    // Arrange
+    const testObject = { key: 'value' };
+    
+    // Act
+    spyLogger.log('Object:', testObject);
+    
+    // Assert
+    expect(spyLogger.getLogCalls().length).toBe(1);
+    expect(spyLogger.getLogCalls()[0][0]).toContain('"key": "value"');
   });
 });
