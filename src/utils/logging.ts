@@ -57,16 +57,7 @@ export class Logger {
   public getLogFilePath(): string {
     return this.logFilePath;
   }
-
 }
-
-// Create the default logger instance
-//const defaultLogger = new Logger();
-
-// Export the default methods for backward compatibility
-//export const debugLog = (...args: any[]): void => defaultLogger.log(...args);
-//export const consoleError = (message?: any, ...optionalParams: any[]): void => 
-//  console.error(message, ...optionalParams);
 
 // Set up process error handlers to catch uncaught exceptions
 export function setupErrorHandlers(logger: Logger): void {
@@ -80,6 +71,3 @@ export function setupErrorHandlers(logger: Logger): void {
     logger.log('UNHANDLED REJECTION:', reason, 'Promise:', promise);
   });
 }
-
-// Log that debugging is enabled
-//debugLog(`Debugging enabled. Log file: ${defaultLogger.getLogFilePath()}`);
