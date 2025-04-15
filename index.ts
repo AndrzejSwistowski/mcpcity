@@ -5,18 +5,54 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import * as search from './src/operations/citySearchSchema.js';
 import { z } from "zod";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
+
+
+// If fetch doesn't exist in global scope, add it
+if (!globalThis.fetch) {
+  globalThis.fetch = fetch as unknown as typeof global.fetch;
+}
+
+
+// Debug configuration
+const DEBUG = true;
+const DEBUG_LOG_FILE = path.join(os.tmpdir(), 'mcp-city-debug.log');
+
+// Debug logging function
+function debugLog(...args: any[]) {
+	if (DEBUG) {
+		try {
+			console.error(DEBUG_LOG_FILE); // Log to stderr for immediate visibility in console
+			const timestamp = new Date().toISOString();
+			const message = `[${timestamp}] ${args.map(arg =>
+				typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+			).join(' ')}`;
+    
+    
+			// Also log to file
+			fs.appendFileSync(DEBUG_LOG_FILE, message + '\n');
+			console.error(message); // Log to stderr for immediate visibility in console
+		}
+		catch (error) {
+			console.error("Error writing to debug log file:", error);
+		}
+  }
+}
+
+// Log that debugging is enabled
+debugLog(`Debugging enabled. Log file: ${DEBUG_LOG_FILE}`);
 
 // Set up process error handlers to catch uncaught exceptions
 process.on('uncaughtException', (err) => {
-  console.error('UNCAUGHT EXCEPTION:', err);
   // Don't exit the process to keep it running for debugging
-  console.error(err.stack);
+  debugLog('UNCAUGHT EXCEPTION:', err, err.stack);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('UNHANDLED REJECTION:', reason);
   // Log the promise details to help with debugging
-  console.error('Promise:', promise);
+  debugLog('UNHANDLED REJECTION:', reason, 'Promise:', promise);
 });
 
 const server = new Server(
@@ -31,22 +67,11 @@ const server = new Server(
   }
 );
 
-// Add handler for initialization request
-server.setRequestHandler(InitializeRequestSchema, async (request) => {
-  console.error("Handling initialize request");
-  return {
-    serverInfo: {
-      name: NAME,
-      version: VERSION,
-    },
-    capabilities: {
-      tools: {},
-    },
-  };
-});
+debugLog('Server instance created with name:', NAME, 'version:', VERSION);
+
 
 server.setRequestHandler(ListToolsRequestSchema, async () => {
-  console.error("Handling list tools request");
+  debugLog("Handling list tools request");
   return {
     tools: [
       {
@@ -59,7 +84,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 });
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  console.error(`Handling call tool request for ${request.params.name}`);
+  debugLog(`Handling call tool request for ${request.params.name}`);
   try {
     if (!request.params.arguments) {
       throw new Error("Arguments are required");
@@ -69,6 +94,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case "city_search": {
         const args = search.citySearchSchema.parse(request.params.arguments);
         const results = mockCitySearch(args.q, args.language || 'pl');
+        debugLog('City search results:', results);
         return {
           content: [{ type: "text", text: JSON.stringify(results, null, 2) }],
         };
@@ -79,8 +105,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
   } catch (error) {
     if (error instanceof z.ZodError) {
+      debugLog('Invalid input error:', error.errors);
       throw new Error(`Invalid input: ${JSON.stringify(error.errors)}`);
     }
+    debugLog('Error in call tool request handler:', error);
     throw error;
   }
 });
@@ -124,12 +152,18 @@ function mockCitySearch(query: string, language: string) {
 }
 
 async function runServer() {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  console.error(NAME + " running on stdio");
+	try {
+		const transport = new StdioServerTransport();
+		await server.connect(transport);
+	}
+	catch (error) {
+		console.error("Error starting server:", error);
+		debugLog("Error starting server:", error);
+		throw error;
+	}
 }
 
 runServer().catch((error) => {
-  console.error("Fatal error in main():", error);
+  debugLog("Fatal error in main():", error);
   process.exit(1);
 });
