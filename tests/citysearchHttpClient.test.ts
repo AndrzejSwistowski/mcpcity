@@ -14,7 +14,7 @@ describe('CitySearchHttpClient', () => {
     client = new CitySearchHttpClient(undefined, mockFetchFn);
     
     // Reset all mocks before each test
-    jest.resetAllMocks();
+    jest.clearAllMocks();
   });
 
   test('search should call the correct URL and return city data', async () => {

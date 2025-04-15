@@ -1,85 +1,50 @@
 import { jest, describe, beforeEach, afterEach, test, expect } from '@jest/globals';
 import path from 'path';
 
-// Create a mock for the fs module
+// Create mock functions that we can assert against
 const mockAppendFileSync = jest.fn();
-jest.mock('fs', () => ({
-  appendFileSync: mockAppendFileSync,
-  // Add any other fs methods that might be used
-  existsSync: jest.fn().mockReturnValue(true),
-  mkdirSync: jest.fn()
-}));
 
-// Import fs after the mock is set up
-import * as fs from 'fs';
-
-// Import the module to test - this must come before the SpyLogger definition
+// Import the module to test
 import { Logger, setupErrorHandlers } from '../src/utils/logging.js';
-import { log } from 'console';
+import { MockLogger } from './utils/testUtils.js';
 
-/**
- * A spy version of Logger for testing that prevents actual console output
- */
-class SpyLogger extends Logger {
-  private spyLogCalls: any[][] = [];
-  
-  constructor(enabled: boolean = false, logPath: string = 'test-log.txt') {
-    super(enabled, logPath); // Create with specific debug setting and log path
-  }
-  
-  /**
-   * Override the logError method to capture log calls instead of writing to console
-   */
-  protected override logError(message: any, ...params: any[]): void {
-    // Instead of calling console.error, store the log in our spy array
-    this.spyLogCalls.push([message, ...params]);
-  }
- 
-	public lastMessage: string = '';
+// Create a spy for console.error to prevent actual console output in tests
+const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
-	override writeToFile(message: string): void {
-		// Instead of writing to file, we can call the original method if needed
-		super.writeToFile(message);
-		// But we can also capture the message here if needed for testing
-		this.lastMessage = message;
-	}
-  /**
-   * Get all recorded log calls
-   */
-  public getLogCalls(): any[][] {
-    return this.spyLogCalls;
-  }
-  
-  /**
-   * Clear recorded log calls
-   */
-  public clearLogCalls(): void {
-    this.spyLogCalls = [];
+// Create a test-specific logger class that uses our mock function
+class TestLogger extends Logger {
+  protected override writeToFile(message: string): void {
+    // Instead of calling the real fs.appendFileSync, call our mock
+    mockAppendFileSync(this.logFilePath, message);
   }
 }
 
-/**
- * A mock version of Logger used to verify console.error calls
- */
-
 describe('Logger Class', () => {
-  let logger: SpyLogger;
+  let logger: TestLogger;
   
   beforeEach(() => {
-    // Create a new logger instance for each test that uses a mock function
-    logger = new SpyLogger(true, 'test-log.txt'); // Enable logging for testing
+    // Create a new logger instance for each test
+    logger = new TestLogger(true, 'test-log.txt'); // Enable logging for testing
     
     // Clear mock call history
     jest.clearAllMocks();
+  });
+  
+  afterEach(() => {
+    // Clean up
+    consoleErrorSpy.mockClear();
   });
 
   test('log method should log messages when debug is enabled', () => {
     // Act
     logger.log('Test message');
     
-    // Assert - we should have at least one call to our mocked function
-    expect(logger.getLogCalls()).toHaveLength(1);
-    expect(logger.lastMessage).toContain('Test message');
+    // Assert - we should have a call to our mocked appendFileSync
+    expect(mockAppendFileSync).toHaveBeenCalled();
+    expect(mockAppendFileSync).toHaveBeenCalledWith(
+      'test-log.txt',
+      expect.stringContaining('Test message')
+    );
   });
   
   test('log method should stringify objects in logs', () => {
@@ -90,16 +55,18 @@ describe('Logger Class', () => {
     logger.log('Test with object:', testObject);
     
     // Assert
-    expect(logger.getLogCalls().length).toBe(1);
-    expect(logger.lastMessage).toContain('"key": "value"');
-    
+    expect(mockAppendFileSync).toHaveBeenCalled();
+    expect(mockAppendFileSync).toHaveBeenCalledWith(
+      'test-log.txt',
+      expect.stringContaining('"key"')
+    );
   });
   
   test('setupErrorHandlers should register handlers for uncaught exceptions', () => {
     // Arrange
     const processOnSpy = jest.spyOn(process, 'on');
     
-    // Act - now passing the logger instance as required
+    // Act
     setupErrorHandlers(logger);
     
     // Assert
@@ -111,35 +78,45 @@ describe('Logger Class', () => {
   });
 });
 
-describe('SpyLogger', () => {
-  let spyLogger: SpyLogger;
+describe('MockLogger', () => {
+  let mockLogger: MockLogger;
   
   beforeEach(() => {
-    spyLogger = new SpyLogger(true); // Enable logging for testing
+    mockLogger = new MockLogger();
     jest.clearAllMocks();
   });
   
-  test('SpyLogger should capture log calls without writing to console', () => {
+  test('MockLogger should capture log calls without writing to console or file', () => {
     // Act
-    spyLogger.log('Test message');
+    mockLogger.log('Test message');
     
-    // Assert - we should have recorded the log call
-    expect(spyLogger.getLogCalls().length).toBe(1);
-    expect(spyLogger.getLogCalls()[0][0]).toContain('Test message');
+    // Assert - message should be captured in the messages array
+    expect(mockLogger.messages.length).toBe(1);
+    expect(mockLogger.messages[0]).toContain('Test message');
     
-    // File should still be written to
-    expect(spyLogger.lastMessage).toContain('Test message');
+    // No file should be written
+    expect(mockAppendFileSync).not.toHaveBeenCalled();
   });
   
-  test('SpyLogger should handle object logging', () => {
+  test('MockLogger should handle object logging', () => {
     // Arrange
     const testObject = { key: 'value' };
     
     // Act
-    spyLogger.log('Object:', testObject);
+    mockLogger.log('Object:', testObject);
     
     // Assert
-    expect(spyLogger.getLogCalls().length).toBe(1);
-    expect(spyLogger.getLogCalls()[0][0]).toContain('"key": "value"');
+    expect(mockLogger.messages.length).toBe(1);
+    expect(mockLogger.messages[0]).toContain('"key":"value"');
+  });
+  
+  test('hasLogContaining should correctly identify matching log messages', () => {
+    // Act
+    mockLogger.log('First message');
+    mockLogger.log('Second message with special content');
+    
+    // Assert
+    expect(mockLogger.hasLogContaining('special content')).toBe(true);
+    expect(mockLogger.hasLogContaining('not present')).toBe(false);
   });
 });

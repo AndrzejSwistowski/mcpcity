@@ -13,4 +13,10 @@ export default {
       },
     ],
   },
+  // Add explicit handling for mocks in ESM
+  transformIgnorePatterns: [
+    'node_modules/(?!(.*\\.mjs$))'
+  ],
+  // This ensures your mocks work correctly with ESM
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
 };

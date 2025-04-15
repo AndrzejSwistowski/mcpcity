@@ -1,37 +1,8 @@
 import { describe, test, expect } from '@jest/globals';
 import { setupRequestHandlers } from '../src/handlers/requestHandlers.js';
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { Logger } from '../src/utils/logging.js';
 import { CitySearchHttpClient } from '../src/services/citysearchHttpClient.js';
-
-// Create a simple MockLogger that extends the real Logger
-class MockLogger extends Logger {
-  public messages: string[] = [];
-  
-  constructor() {
-    super(false); // Disable actual debug output
-  }
-  
-  override log(...args: any[]): void {
-    const message = args.map(arg => 
-      typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
-    ).join(' ');
-    this.messages.push(message);
-  }
-  
-  protected override writeToFile(): void {
-    // Override to prevent actual file writing
-  }
-  
-  protected override logError(): void {
-    // Override to prevent console output
-  }
-  
-  // Helper method to check if a log message exists
-  public hasLogContaining(text: string): boolean {
-    return this.messages.some(msg => msg.includes(text));
-  }
-}
+import { MockLogger } from './utils/testUtils.js';
 
 // Create a mock server that counts handler registrations
 class MockServer {
