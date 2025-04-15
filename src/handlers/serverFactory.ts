@@ -3,6 +3,7 @@ import { VERSION, NAME } from "../common/version.js";
 import { Logger } from "../utils/logging.js";
 import { CitySearchHttpClient } from "../services/citysearchHttpClient.js";
 import { setupRequestHandlers } from "./requestHandlers.js";
+import { appConfig } from "../config/config.js";
 
 /**
  * Creates and configures a server instance with all necessary components
@@ -10,6 +11,9 @@ import { setupRequestHandlers } from "./requestHandlers.js";
  * @returns A configured server ready to connect to a transport
  */
 export function createConfiguredServer(logger: Logger): Server {
+  // Log the current configuration
+  logger.log('Starting server with configuration:', appConfig);
+  
   // Initialize the city search client
   const citySearchClient = new CitySearchHttpClient();
   

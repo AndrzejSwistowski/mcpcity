@@ -1,0 +1,6 @@
+{
+  "citySearchBaseUrl": "https://citiessubstitute.t.voyager.pl/CitiesSearch",
+  "defaultLanguage": "pl",
+  "debug": false,
+  "debugLogPath": "logs/mcp-city-debug.log"
+}

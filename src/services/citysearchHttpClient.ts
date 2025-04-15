@@ -1,4 +1,3 @@
-
 /// service that call 'https://citiessubstitute.t.voyager.pl/CitiesSearch/GetCities?query=Czechowice-Dziedzice&lang=PL'
 // in the async call method it resive query and lang as params
 // and return the colection of the objects with the following properties:
@@ -13,6 +12,7 @@
 //  }
 //]
 
+import { appConfig } from '../config/config.js';
 
 /**
  * Type definition for fetch options
@@ -61,11 +61,11 @@ export class CitySearchHttpClient {
 
   /**
    * Creates a new instance of CitySearchHttpClient
-   * @param baseUrl Optional base URL for the API. Defaults to 'https://citiessubstitute.t.voyager.pl/CitiesSearch'
+   * @param baseUrl Optional base URL for the API. Defaults to value from configuration
    * @param fetchFunction Optional fetch function to use. Defaults to the fetchWrapper function. Useful for testing.
    */
   constructor(baseUrl?: string, fetchFunction: typeof fetchWrapper = fetchWrapper) {
-    this.baseUrl = baseUrl || 'https://citiessubstitute.t.voyager.pl/CitiesSearch';
+    this.baseUrl = baseUrl || appConfig.citySearchBaseUrl;
     this.fetchFn = fetchFunction;
   }
 
@@ -75,7 +75,7 @@ export class CitySearchHttpClient {
    * @param lang The language code (e.g., 'PL', 'EN')
    * @returns Promise with an array of matching cities
    */
-  public async search(query: string, lang: string = 'PL'): Promise<CitySearchResult[]> {
+  public async search(query: string, lang: string = appConfig.defaultLanguage): Promise<CitySearchResult[]> {
     try {
 
       const url = `${this.baseUrl}/GetCities?query=${encodeURIComponent(query)}&lang=${encodeURIComponent(lang)}`;

@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { appConfig } from '../config/config.js';
 
 /**
  * Logger class to handle debug logging with configurable outputs
@@ -11,15 +12,32 @@ export class Logger {
 
   /**
    * Creates a new Logger instance
-   * @param debug Whether debug logging is enabled
-   * @param logFilePath Path to the log file
+   * @param debug Optional override for debug flag. If not provided, uses the value from configuration.
+   * @param logFilePath Optional override for log file path. If not provided, uses the value from configuration.
    */
   constructor(
-    debug: boolean = true,
-    logFilePath: string = path.join(os.tmpdir(), 'mcp-city-debug.log')
+    debug?: boolean,
+    logFilePath?: string
   ) {
-    this.debug = debug;
-    this.logFilePath = logFilePath;
+    this.debug = debug !== undefined ? debug : appConfig.debug;
+    this.logFilePath = logFilePath || appConfig.debugLogPath;
+    
+    // Ensure the directory for the log file exists
+    this.ensureLogDirectoryExists();
+  }
+
+  /**
+   * Ensures that the directory for the log file exists
+   */
+  private ensureLogDirectoryExists(): void {
+    try {
+      const logDir = path.dirname(this.logFilePath);
+      if (!fs.existsSync(logDir)) {
+        fs.mkdirSync(logDir, { recursive: true });
+      }
+    } catch (error) {
+      console.error("Failed to create log directory:", error);
+    }
   }
 
   /**
@@ -41,21 +59,45 @@ export class Logger {
     } catch (error) {
       this.logError("Error writing to debug log file:", error);
     }
-	}
+  }
 	
-	protected writeToFile(message: string) {
-		fs.appendFileSync(this.logFilePath, message + '\n');
-	}
+  protected writeToFile(message: string) {
+    fs.appendFileSync(this.logFilePath, message + '\n');
+  }
 
-	protected logError(message: any, ...params: any[]): void {
-		console.error(message, ...params);
-	}
+  protected logError(message: any, ...params: any[]): void {
+    console.error(message, ...params);
+  }
 
   /**
    * Gets the current log file path
    */
   public getLogFilePath(): string {
     return this.logFilePath;
+  }
+  
+  /**
+   * Checks if debugging is enabled
+   */
+  public isDebugEnabled(): boolean {
+    return this.debug;
+  }
+  
+  /**
+   * Enables or disables debugging
+   * @param enable Whether to enable debugging
+   */
+  public setDebugEnabled(enable: boolean): void {
+    this.debug = enable;
+  }
+  
+  /**
+   * Sets a new log file path
+   * @param logFilePath The new log file path
+   */
+  public setLogFilePath(logFilePath: string): void {
+    this.logFilePath = logFilePath;
+    this.ensureLogDirectoryExists();
   }
 }
 

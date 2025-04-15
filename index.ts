@@ -2,6 +2,17 @@ import { Logger, setupErrorHandlers } from './src/utils/logging.js';
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createConfiguredServer } from './src/handlers/serverFactory.js';
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { loadConfig, appConfig } from './src/config/config.js';
+
+// Process command line arguments to see if a config file was specified
+const args = process.argv.slice(2);
+const configFileIndex = args.findIndex(arg => arg === '--config' || arg === '-c');
+if (configFileIndex >= 0 && args.length > configFileIndex + 1) {
+  // If config file was specified, reload the configuration
+  const configFilePath = args[configFileIndex + 1];
+  // This will update the appConfig singleton with the values from the specified file
+  Object.assign(appConfig, loadConfig(configFilePath));
+}
 
 // If fetch doesn't exist in global scope, add it
 if (!globalThis.fetch) {
@@ -14,8 +25,8 @@ const logger = new Logger();
 // Set up error handlers
 setupErrorHandlers(logger);
 
-// Create and configure the server, passing the logger as a parameter
-createConfiguredServer(logger);
+// Log the current configuration
+logger.log("Starting with configuration:", appConfig);
 
 async function runServer(server: Server): Promise<void> {
 	try {
