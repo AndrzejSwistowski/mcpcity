@@ -7,7 +7,7 @@ import * as os from 'os';
  */
 export class Logger {
   private debug: boolean;
-  private logFilePath: string;
+  protected logFilePath: string;
 
   /**
    * Creates a new Logger instance
@@ -36,13 +36,17 @@ export class Logger {
       ).join(' ')}`;
 
       // Also log to file
-      fs.appendFileSync(this.logFilePath, message + '\n');
+      this.writeToFile(message);
       this.logError(message); // Log to stderr for immediate visibility in console
     } catch (error) {
       this.logError("Error writing to debug log file:", error);
     }
 	}
 	
+	protected writeToFile(message: string) {
+		fs.appendFileSync(this.logFilePath, message + '\n');
+	}
+
 	protected logError(message: any, ...params: any[]): void {
 		console.error(message, ...params);
 	}
