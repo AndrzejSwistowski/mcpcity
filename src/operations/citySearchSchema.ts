@@ -26,8 +26,6 @@ export type CitySearchParams = z.infer<typeof citySearchSchema>;
 /**
  * JSON Schema representation of the city search schema
  */
-export const citySearchJsonSchema = zodToJsonSchema(citySearchSchema, {
-  name: 'CitySearch',
-});
+export const citySearchJsonSchema = zodToJsonSchema(citySearchSchema);
 
 export default citySearchSchema;

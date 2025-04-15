@@ -1,7 +1,6 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { VERSION, NAME } from "./src/common/version.js";
-import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { CallToolRequestSchema,  ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import * as search from './src/operations/citySearchSchema.js';
 import { z } from "zod";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -29,6 +28,7 @@ const server = new Server(
 
 debugLog('Server instance created with name:', NAME, 'version:', VERSION);
 
+
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   debugLog("Handling list tools request");
   return {
@@ -36,7 +36,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       {
         name: "city_search",
         description: "Search for cities based on a query string",
-        inputSchema: zodToJsonSchema(search.citySearchSchema)
+        inputSchema: search.citySearchJsonSchema
       }
     ]
   };
@@ -112,8 +112,12 @@ function mockCitySearch(query: string, language: string) {
 
 async function runServer() {
 	try {
+		debugLog("Starting server...");
 		const transport = new StdioServerTransport();
+		debugLog("Transport created:");
 		await server.connect(transport);
+		debugLog("Server connected to transport");
+		
 	}
 	catch (error) {
 		console.error("Error starting server:", error);
@@ -123,6 +127,12 @@ async function runServer() {
 }
 
 runServer().catch((error) => {
-  debugLog("Fatal error in main():", error);
-  process.exit(1);
+	debugLog("Fatal error in main():", error);
+	process.exit(1);
+}).finally(() => {
+	debugLog("Server has been started and is running.");
 });
+
+// Sleep for a second before proceeding
+await new Promise(resolve => setTimeout(resolve, 1000));
+debugLog("Last line of the script executed. If you see this, the server is running.");
